@@ -9,11 +9,11 @@ description: Use when the user wants an audio/sound cue to play automatically on
 
 Wires an audio cue into Claude Code's `UserPromptSubmit` (fires when the user sends a message) and/or `Stop` (fires when Claude finishes responding) hooks in `settings.json`. Personal preference → use `~/.claude/settings.json` (global), not a project file.
 
-Cross-platform via two bundled scripts that auto-detect the right native player — never inline a single OS's command directly in the hook JSON.
+Cross-platform via two bundled scripts that auto-detect the right native player — never inline a single OS's command directly in the hook JSON. Ships with a default sound (`sounds/default.mp3`) so it works with zero configuration; the user can still point it at their own file.
 
 ## Steps
 
-1. **If the user wants a custom file and it's not already an audio file** (e.g. an Audacity `.aup4` project — that's a SQLite project container, not playable audio), tell them to export it to wav/ogg/mp3 from Audacity first and give you the exported path.
+1. **Pick the sound file.** If the user doesn't name one, use the bundled default: `sounds/default.mp3` next to this skill (personal-skill install: `~/.claude/skills/subito-daei/sounds/default.mp3`; plugin install: `${CLAUDE_PLUGIN_ROOT}/skills/subito-daei/sounds/default.mp3`). If they want a custom file and it's not already an audio file (e.g. an Audacity `.aup4` project — that's a SQLite project container, not playable audio), tell them to export it to wav/ogg/mp3 from Audacity first and give you the exported path.
 
 2. **Detect the OS** (`uname` on macOS/Linux; assume Windows otherwise) and pick the matching script:
    - macOS / Linux → `scripts/play-sound.sh <absolute-file-path>` (bash). Tries `afplay` → `paplay` → `gst-launch-1.0 playbin` → `canberra-gtk-play` → `aplay`, first that succeeds wins, never fails the hook.
@@ -25,8 +25,6 @@ Cross-platform via two bundled scripts that auto-detect the right native player 
 
 4. **Read `~/.claude/settings.json` first** (Edit tool requires a prior Read), then merge — don't replace the whole file. Add/merge into the `hooks` object.
 
-   **Script path depends on how this skill is installed:** as a personal skill (copied under `~/.claude/skills/`), use `~/.claude/skills/subito-daei/scripts/...` as below. As a plugin (installed from a marketplace), use `${CLAUDE_PLUGIN_ROOT}/skills/subito-daei/scripts/...` instead — the examples below show the personal-skill form, swap the prefix if this loaded as a plugin.
-
    **macOS/Linux** (bash, default shell — no `"shell"` field needed):
    ```json
    {
@@ -36,7 +34,7 @@ Cross-platform via two bundled scripts that auto-detect the right native player 
            "hooks": [
              {
                "type": "command",
-               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/Music/sound.mp3 >/dev/null 2>&1 || true"
+               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/.claude/skills/subito-daei/sounds/default.mp3 >/dev/null 2>&1 || true"
              }
            ]
          }
@@ -46,7 +44,7 @@ Cross-platform via two bundled scripts that auto-detect the right native player 
            "hooks": [
              {
                "type": "command",
-               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/Music/sound.mp3 >/dev/null 2>&1 || true"
+               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/.claude/skills/subito-daei/sounds/default.mp3 >/dev/null 2>&1 || true"
              }
            ]
          }
@@ -65,7 +63,7 @@ Cross-platform via two bundled scripts that auto-detect the right native player 
              {
                "type": "command",
                "shell": "powershell",
-               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\Music\\sound.mp3\""
+               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\sounds\\default.mp3\""
              }
            ]
          }
@@ -76,7 +74,7 @@ Cross-platform via two bundled scripts that auto-detect the right native player 
              {
                "type": "command",
                "shell": "powershell",
-               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\Music\\sound.mp3\""
+               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\sounds\\default.mp3\""
              }
            ]
          }

@@ -1,8 +1,9 @@
 # subito-daei
 
-Claude Code plugin/skill that plays a custom sound when you send a prompt and when Claude
-finishes responding. Cross-platform (macOS, Linux, Windows) — auto-detects a native audio
-player, no extra dependencies to install.
+Claude Code plugin/skill that plays a sound when you send a prompt and when Claude finishes
+responding. Cross-platform (macOS, Linux, Windows) — auto-detects a native audio player, no
+extra dependencies to install. Ships with a default sound (`skills/subito-daei/sounds/default.mp3`)
+so it works out of the box; point it at your own file if you want something else.
 
 ## Install as a plugin
 
@@ -12,6 +13,10 @@ player, no extra dependencies to install.
 ```
 
 Then just ask Claude, e.g.:
+
+> use the subito-daei skill to set up the default sound on prompt submit and when you're done answering
+
+or point it at your own file:
 
 > use the subito-daei skill to play `~/Music/my-sound.mp3` on prompt submit and when you're done answering
 
