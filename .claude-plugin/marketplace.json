@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "subito-daei",
+  "description": "Play a custom sound on prompt submit and on response completion in Claude Code.",
+  "owner": {
+    "name": "alepadu",
+    "url": "https://github.com/alepadu"
+  },
+  "plugins": [
+    {
+      "name": "subito-daei",
+      "description": "Play a custom sound when you send a prompt and when Claude finishes responding. Cross-platform (macOS, Linux, Windows).",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

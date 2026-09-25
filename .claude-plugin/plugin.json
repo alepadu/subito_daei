@@ -1,0 +1,8 @@
+{
+  "name": "subito-daei",
+  "description": "Play a custom sound when you send a prompt and when Claude finishes responding. Cross-platform (macOS, Linux, Windows).",
+  "author": {
+    "name": "alepadu",
+    "url": "https://github.com/alepadu"
+  }
+}
