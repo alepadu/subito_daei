@@ -7,91 +7,80 @@ description: Use when the user wants an audio/sound cue to play automatically on
 
 ## Overview
 
-Wires an audio cue into Claude Code's `UserPromptSubmit` (fires when the user sends a message) and/or `Stop` (fires when Claude finishes responding) hooks in `settings.json`. Personal preference → use `~/.claude/settings.json` (global), not a project file.
+Wires audio cues into Claude Code hooks in `settings.json`. Personal preference → use `~/.claude/settings.json` (global), not a project file.
 
-Cross-platform via two bundled scripts that auto-detect the right native player — never inline a single OS's command directly in the hook JSON. Ships with a default sound (`sounds/default.mp3`) so it works with zero configuration; the user can still point it at their own file.
+Cross-platform via two bundled scripts that auto-detect the right native player — never inline a single OS's command directly in the hook JSON.
+
+Every audio file in `sounds/` is a selectable sound (list the folder at setup time, the set can grow). `sounds/descriptions.json` maps filename → short user-facing description. The user may also give any custom wav/ogg/mp3 path.
+
+## Events the user can choose
+
+| Choice | Hook event | Fires when |
+|---|---|---|
+| Command start | `UserPromptSubmit` | user sends a prompt |
+| Command end | `Stop` | main Claude finishes responding (never fires for sub-agents) |
+| Sub-agent start | `SubagentStart` | a sub-agent is spawned |
+| Sub-agent end | `SubagentStop` | a sub-agent finishes |
+
+Each enabled event gets its own sound. Same sound everywhere = uniform; different sounds per event = differentiated (e.g. `subito-daei.mp3` on start, `hai-rebasato.mp3` on end, and a third sound or the same one for sub-agents so they can be told apart from the main agent). **Sub-agent events are opt-in**: if the user doesn't want sub-agent sounds, simply don't wire `SubagentStart`/`SubagentStop` — main-agent sounds are unaffected.
 
 ## Steps
 
-1. **Pick the sound file.** If the user doesn't name one, use the bundled default: `sounds/default.mp3` next to this skill (personal-skill install: `~/.claude/skills/subito-daei/sounds/default.mp3`; plugin install: `${CLAUDE_PLUGIN_ROOT}/skills/subito-daei/sounds/default.mp3`). If they want a custom file and it's not already an audio file (e.g. an Audacity `.aup4` project — that's a SQLite project container, not playable audio), tell them to export it to wav/ogg/mp3 from Audacity first and give you the exported path.
+1. **Ask the user** (use AskUserQuestion; skip questions whose answer they already gave):
+   - Which events: start / end / both (default: both).
+   - Sub-agents: no sound (default) / sound on sub-agent end / sound on start and end.
+   - Sound per enabled event: pick from `ls sounds/` (default: `subito-daei.mp3`), or a custom file. Show each option as its filename (without extension) as label plus its description from `sounds/descriptions.json` (`jq -r 'to_entries[]|"\(.key): \(.value)"' sounds/descriptions.json`) as the option description; a sound with no entry is shown by filename only. AskUserQuestion allows max 4 options: if more sounds exist, list them all in plain text first and offer the likeliest 4 (Other covers the rest). Offer "same sound for all" vs "different sound per event".
+   If a custom file isn't audio (e.g. Audacity `.aup4` is a SQLite project container), tell them to export to wav/ogg/mp3 first.
 
-2. **Detect the OS** (`uname` on macOS/Linux; assume Windows otherwise) and pick the matching script:
+2. **Resolve absolute paths.** Skill dir: personal-skill install `~/.claude/skills/subito-daei`; plugin install the plugin's `skills/subito-daei` directory (`${CLAUDE_PLUGIN_ROOT}` is NOT expanded in user settings.json — write the real absolute path).
+
+3. **Detect the OS** (`uname`; assume Windows otherwise) and pick the script:
    - macOS / Linux → `scripts/play-sound.sh <absolute-file-path>` (bash). Tries `afplay` → `paplay` → `gst-launch-1.0 playbin` → `canberra-gtk-play` → `aplay`, first that succeeds wins, never fails the hook.
    - Windows → `scripts/play-sound.ps1 <absolute-file-path>` (PowerShell). `.wav` via `Media.SoundPlayer` (sync), anything else via `PresentationCore`'s `MediaPlayer` (async + bounded wait).
 
-3. **Pipe-test the exact script invocation before writing config**, e.g. `bash scripts/play-sound.sh ~/Music/sound.mp3`, and confirm exit code 0 **and** that the user actually heard it (ask — exit 0 doesn't prove audible output reached them; it can mean the pipeline ran but nothing came out of the speakers).
+4. **Pipe-test each chosen sound** with the exact script invocation before writing config, e.g. `bash scripts/play-sound.sh "$SKILL_DIR/sounds/hai-rebasato.mp3"`, and confirm exit code 0 **and** that the user actually heard it (ask — exit 0 doesn't prove audible output).
 
-   **Gotcha found in practice:** `canberra-gtk-play -f song.mp3` can fail with `Failed to play sound: File or data corrupt` even on a valid, short mp3, while `gst-launch-1.0 playbin uri=file:///abs/path/song.mp3` plays the identical file fine. This is why `play-sound.sh` tries `gst-launch-1.0` before `canberra-gtk-play` — don't reorder that without re-testing mp3 specifically.
+   **Gotcha found in practice:** `canberra-gtk-play -f song.mp3` can fail with `Failed to play sound: File or data corrupt` even on a valid mp3, while `gst-launch-1.0 playbin uri=file:///abs/path/song.mp3` plays it fine. This is why `play-sound.sh` tries `gst-launch-1.0` before `canberra-gtk-play` — don't reorder without re-testing mp3.
 
-4. **Read `~/.claude/settings.json` first** (Edit tool requires a prior Read), then merge — don't replace the whole file. Add/merge into the `hooks` object.
+5. **Read `~/.claude/settings.json` first** (Edit requires a prior Read), then merge — never replace the whole file. Re-running the setup must be idempotent: first remove any existing hook entries whose command contains `subito-daei`, then add the new ones, so changing choices (e.g. dropping sub-agent sound) removes the old hooks.
 
-   **macOS/Linux** (bash, default shell — no `"shell"` field needed):
+   Hook shape per enabled event (one entry per event, its own sound file):
+
+   **macOS/Linux** (no `"shell"` field needed):
    ```json
-   {
-     "hooks": {
-       "UserPromptSubmit": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/.claude/skills/subito-daei/sounds/default.mp3 >/dev/null 2>&1 || true"
-             }
-           ]
-         }
-       ],
-       "Stop": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "command": "bash ~/.claude/skills/subito-daei/scripts/play-sound.sh ~/.claude/skills/subito-daei/sounds/default.mp3 >/dev/null 2>&1 || true"
-             }
-           ]
-         }
-       ]
-     }
-   }
+   { "hooks": [ { "type": "command",
+     "command": "bash <SKILL_DIR>/scripts/play-sound.sh <SKILL_DIR>/sounds/<sound-file> >/dev/null 2>&1 || true" } ] }
    ```
 
-   **Windows** (needs explicit `"shell": "powershell"` and `%USERPROFILE%`-style absolute paths, since `~` doesn't expand the same way):
+   **Windows** (needs `"shell": "powershell"` and `$env:USERPROFILE`-style absolute paths):
    ```json
-   {
-     "hooks": {
-       "UserPromptSubmit": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "shell": "powershell",
-               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\sounds\\default.mp3\""
-             }
-           ]
-         }
-       ],
-       "Stop": [
-         {
-           "hooks": [
-             {
-               "type": "command",
-               "shell": "powershell",
-               "command": "powershell -NoProfile -File \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\scripts\\play-sound.ps1\" \"$env:USERPROFILE\\.claude\\skills\\subito-daei\\sounds\\default.mp3\""
-             }
-           ]
-         }
-       ]
-     }
-   }
+   { "hooks": [ { "type": "command", "shell": "powershell",
+     "command": "powershell -NoProfile -File \"<SKILL_DIR>\\scripts\\play-sound.ps1\" \"<SKILL_DIR>\\sounds\\<sound-file>\"" } ] }
    ```
 
-   Always redirect stdout/stderr and end bash commands with `|| true` — a hook that exits non-zero or prints noise pollutes the transcript/UI for no benefit; a sound cue must never block or fail the turn. `play-sound.ps1` already swallows its own errors internally (`try`/`catch` → `exit 0`), so the Windows command doesn't need a trailing `|| true` equivalent.
-
-5. **Validate JSON + schema:**
+   Each goes in the array under `.hooks.<EventName>`. Example jq merge (macOS/Linux) that strips old subito-daei hooks, then adds the events listed in `EVENTS` (event=sound pairs):
    ```bash
-   jq -e '.hooks.UserPromptSubmit[0].hooks[0].command, .hooks.Stop[0].hooks[0].command' ~/.claude/settings.json
+   SKILL_DIR=~/.claude/skills/subito-daei
+   declare -A EVENTS=( [UserPromptSubmit]=subito-daei.mp3 [Stop]=hai-rebasato.mp3 )   # add SubagentStart/SubagentStop only if wanted
+   cp ~/.claude/settings.json ~/.claude/settings.json.bak
+   jq '.hooks //= {} | .hooks |= with_entries(.value |= map(select(([.hooks[]?.command] | any(contains("subito-daei"))) | not)))' ~/.claude/settings.json > /tmp/s.json
+   for ev in "${!EVENTS[@]}"; do
+     cmd="bash $SKILL_DIR/scripts/play-sound.sh $SKILL_DIR/sounds/${EVENTS[$ev]} >/dev/null 2>&1 || true"
+     jq --arg ev "$ev" --arg cmd "$cmd" '.hooks[$ev] += [{hooks:[{type:"command",command:$cmd}]}]' /tmp/s.json > /tmp/s2.json && mv /tmp/s2.json /tmp/s.json
+   done
+   mv /tmp/s.json ~/.claude/settings.json
    ```
-   Exit 0 + prints the commands = correct.
+   (Use the scratchpad dir instead of `/tmp` if one is provided. Empty event arrays left after stripping are harmless.)
 
-6. Tell the user it applies from the next prompt, or `/hooks` to reload immediately.
+   Always redirect stdout/stderr and end bash commands with `|| true` — a sound cue must never block or fail the turn. `play-sound.ps1` swallows its own errors (`try`/`catch` → `exit 0`).
+
+6. **Validate JSON + schema:**
+   ```bash
+   jq -e '[.hooks[][]?.hooks[]?.command | select(contains("subito-daei"))]' ~/.claude/settings.json
+   ```
+   Exit 0 + the expected commands (one per enabled event) = correct.
+
+7. Tell the user it applies from the next prompt, or `/hooks` to reload immediately. To change choices later, just re-run the skill.
 
 ## Common Mistakes
 

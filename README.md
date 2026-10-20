@@ -2,8 +2,8 @@
 
 Claude Code plugin/skill that plays a sound when you send a prompt and when Claude finishes
 responding. Cross-platform (macOS, Linux, Windows) — auto-detects a native audio player, no
-extra dependencies to install. Ships with a default sound (`skills/subito-daei/sounds/default.mp3`)
-so it works out of the box; point it at your own file if you want something else.
+extra dependencies to install. Ships with sounds in `skills/subito-daei/sounds/` (every audio file
+there is selectable); you can also point it at your own file.
 
 ## Install as a plugin
 
@@ -14,7 +14,11 @@ so it works out of the box; point it at your own file if you want something else
 
 Then just ask Claude, e.g.:
 
-> use the subito-daei skill to set up the default sound on prompt submit and when you're done answering
+> use the subito-daei skill to set up sounds
+
+Claude asks which sound, when to play it, and whether sub-agents get a sound. Or be explicit:
+
+> use the subito-daei skill: `hai-rebasato.mp3` when I send a prompt, `subito-daei.mp3` when you finish, no sound for sub-agents
 
 or point it at your own file:
 
@@ -32,10 +36,18 @@ cp -r subito_daei/skills/subito-daei ~/.claude/skills/
 
 Then ask Claude to set it up the same way as above.
 
+## Options
+
+- **Sound**: any file in `skills/subito-daei/sounds/` or a custom path. Drop new files in `sounds/` and they become choosable. Add a one-line entry in `sounds/descriptions.json` (`"file.mp3": "description"`) and the description is shown when choosing.
+- **When**: command start (`UserPromptSubmit`), command end (`Stop`), or both.
+- **Sub-agents**: no sound by default; opt in to `SubagentStart` / `SubagentStop` sounds. `Stop` only fires for the main agent, so main-agent sounds are never doubled by sub-agents.
+- **Differentiate**: one sound per event, so you can tell start from end, and main agent from sub-agents, by ear.
+
+Re-run the skill any time to change choices; it replaces its previous hooks.
+
 ## What it does
 
-- Adds a `UserPromptSubmit` hook (fires when you send a message) and/or a `Stop` hook (fires
-  when Claude finishes responding) to `~/.claude/settings.json`.
+- Adds `UserPromptSubmit` (you send a message), `Stop` (Claude finishes) and optionally `SubagentStart`/`SubagentStop` hooks to `~/.claude/settings.json`.
 - Each hook runs a small bundled script that tries native players in order until one plays
   the file, and never fails the hook if none is found:
   - **macOS/Linux** (`scripts/play-sound.sh`): `afplay` → `paplay` → `gst-launch-1.0` → `canberra-gtk-play` → `aplay`
